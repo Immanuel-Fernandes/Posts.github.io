@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Social Posts Viewer</title>
+</head>
+<body>
+
+  <h1>📢 Social Posts</h1>
+
+
+  <div class="controls">
+  <select id="filterSelect">
+    <option value="all">All Posts</option>
+  </select>
+
+  <select id="sortOrder">
+    <option value="desc">Newest First</option>
+    <option value="asc">Oldest First</option>
+  </select>
+</div>
+
+<div class="calendar-bar" id="calendarBar"></div>
+
+<div id="dayPage" class="day-page"></div>
+
+
+<div id="posts" class="posts-container"></div>
+
+
+
+  <div id="posts" class="posts-container"></div>
+
+  <style>
+   /* ===== GLOBAL ===== */
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(180deg, #f4f6f8, #eef1f5);
+  margin: 0;
+  padding: 20px;
+  color: #222;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 25px;
+  font-weight: 700;
+}
+
+/* ===== CONTROLS ===== */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+select {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-weight: 600;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* ===== CALENDAR BAR ===== */
+.calendar-bar {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.calendar-bar button {
+  min-width: 70px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #e9eef5;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.calendar-bar button:hover {
+  background: #dce6f3;
+}
+
+.calendar-bar button.active {
+  background: linear-gradient(135deg, #3498db, #1e6fbf);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(52,152,219,0.35);
+}
+
+/* ===== DAY PAGE ===== */
+.day-page {
+  margin-top: 10px;
+}
+
+.day-title {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 20px;
+  padding-left: 4px;
+}
+
+/* ===== RESPONSIVE GRID ===== */
+.day-page {
+  display: grid;
+  gap: 22px;
+}
+
+/* 1 card */
+@media (max-width: 575px) {
+  .day-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 2 cards */
+@media (min-width: 576px) and (max-width: 767px) {
+  .day-page {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 3 cards */
+@media (min-width: 768px) and (max-width: 991px) {
+  .day-page {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 4 cards */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .day-page {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 5 cards */
+@media (min-width: 1200px) {
+  .day-page {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* ===== POST CARD ===== */
+.post {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.post:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.12);
+}
+
+.post img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.date {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.post pre {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.55;
+  flex-grow: 1;
+  margin: 0 0 12px 0;
+}
+
+/* ===== BUTTONS ===== */
+.buttons {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.copy-btn {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  color: white;
+}
+
+.share-btn {
+  background: linear-gradient(135deg, #3498db, #1e6fbf);
+  color: white;
+}
+
+
+  </style>
+
+  <script>
+    let postsData = [];
+    let currentSortOrder = 'desc'; // Default sort order
+
+// Load JSON
+fetch("data.json")
+  .then(res => res.json())
+  .then(json => {
+    const table = json.find(item => item.type === "table");
+    postsData = table.data;
+    populateMonthFilter(postsData);
+    // Add event listeners after data is loaded
+    setupEventListeners();
+  });
+
+// Populate month dropdown and auto-select current IST month/day
+function populateMonthFilter(posts) {
+  const filter = document.getElementById("filterSelect");
+  filter.innerHTML = `<option value="all">All Posts</option>`;
+
+  const monthOrder = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const months = [...new Set(posts.map(p => p.publish_month))]
+    .sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+
+  // Add month options
+  months.forEach(m => {
+    filter.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+
+  // ===== Get current IST date =====
+  const now = new Date();
+  const istOffset = 5.5 * 60; // IST is UTC +5:30 in minutes
+  const istDate = new Date(now.getTime() + (istOffset + now.getTimezoneOffset()) * 60000);
+  const currentMonth = monthOrder[istDate.getMonth()];
+  const currentDay = istDate.getDate();
+
+  // ===== Determine default month to display =====
+  let defaultMonth = months.includes(currentMonth) ? currentMonth : months[0] || "all";
+  filter.value = defaultMonth;
+
+  // Filter posts for default month
+  const monthPosts = defaultMonth === "all" ? posts : posts.filter(p => p.publish_month === defaultMonth);
+
+  // Build calendar and pass currentDay if available
+  buildCalendar(monthPosts, defaultMonth, months.includes(currentMonth) ? currentDay : null);
+
+  // ===== Month change event =====
+  filter.addEventListener("change", () => {
+    const selectedMonth = filter.value;
+    const filteredPosts = selectedMonth === "all" ? posts : posts.filter(p => p.publish_month === selectedMonth);
+    buildCalendar(filteredPosts, selectedMonth);
+  });
+}
+
+
+// Setup event listeners for controls
+function setupEventListeners() {
+  const filterSelect = document.getElementById("filterSelect");
+  const sortOrderSelect = document.getElementById("sortOrder");
+
+  filterSelect.addEventListener("change", () => {
+    const selectedMonth = filterSelect.value;
+    let filteredPosts;
+    if (selectedMonth === "all") {
+      filteredPosts = postsData;
+      buildCalendar(filteredPosts, "All");
+    } else {
+      filteredPosts = postsData.filter(p => p.publish_month === selectedMonth);
+      buildCalendar(filteredPosts, selectedMonth);
+    }
+    // After building calendar, click the first day or keep current if possible
+    const firstBtn = document.querySelector(".calendar-bar button");
+    if (firstBtn) firstBtn.click();
+  });
+
+  sortOrderSelect.addEventListener("change", () => {
+    currentSortOrder = sortOrderSelect.value;
+    // Re-render the current day page with new sort
+    const activeBtn = document.querySelector(".calendar-bar button.active");
+    if (activeBtn) {
+      const text = activeBtn.textContent.split(" ");
+      const day = text[0];
+      const month = text[1];
+      const posts = postsData.filter(p => p.publish_day == day && p.publish_month === month);
+      showDayPage(day, month, posts);
+    }
+  });
+}
+
+// Build top calendar bar
+// Build top calendar bar
+function buildCalendar(posts, month, defaultDay = null) {
+  const calendarBar = document.getElementById("calendarBar");
+  const dayPage = document.getElementById("dayPage");
+
+  calendarBar.innerHTML = "";
+  dayPage.innerHTML = "";
+
+  // Group posts by day
+  const grouped = {};
+  posts.forEach(p => {
+    const day = Number(p.publish_day);
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(p);
+  });
+
+  const days = Object.keys(grouped).sort((a, b) => a - b);
+
+  days.forEach((day, index) => {
+    const btn = document.createElement("button");
+    btn.textContent = `${day} ${month}`;
+
+    btn.onclick = () => {
+      document.querySelectorAll(".calendar-bar button")
+        .forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      showDayPage(day, month, grouped[day]);
+    };
+
+    calendarBar.appendChild(btn);
+  });
+
+  // Auto-click default day or first day
+  let btnToClick = null;
+  if (defaultDay && grouped[defaultDay]) {
+    btnToClick = Array.from(calendarBar.children).find(b => b.textContent.startsWith(defaultDay));
+  }
+  if (!btnToClick && days.length > 0) {
+    btnToClick = calendarBar.children[0];
+  }
+
+  if (btnToClick) {
+    btnToClick.click();
+    // Scroll calendar bar to make it visible
+    const offsetLeft = btnToClick.offsetLeft - calendarBar.offsetWidth / 2 + btnToClick.offsetWidth / 2;
+    calendarBar.scrollTo({ left: offsetLeft, behavior: 'smooth' });
+  }
+}
+
+// Render single day page
+function showDayPage(day, month, posts) {
+  const dayPage = document.getElementById("dayPage");
+  dayPage.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "day-title";
+  title.textContent = `${day} ${month}`;
+  dayPage.appendChild(title);
+
+  // Sort posts based on currentSortOrder
+  posts.sort((a, b) => {
+    const dateA = new Date(a.publish_year, ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].indexOf(a.publish_month), a.publish_day);
+    const dateB = new Date(b.publish_year, ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].indexOf(b.publish_month), b.publish_day);
+    if (currentSortOrder === 'asc') {
+      return dateA - dateB;
+    } else {
+      return dateB - dateA;
+    }
+  });
+
+  posts.forEach(post => {
+    const div = document.createElement("div");
+    div.className = "post";
+
+    div.innerHTML = `
+      <img src="${post.image_url}">
+      <div class="date">Year: ${post.publish_year}</div>
+      <pre>${post.post_text}</pre>
+      <div class="buttons">
+        <button class="copy-btn">📋 Copy</button>
+        <button class="share-btn">📤 Share</button>
+      </div>
+    `;
+
+    // Copy
+    div.querySelector(".copy-btn").onclick = () => {
+      navigator.clipboard.writeText(post.post_text);
+    };
+
+    // Share
+    div.querySelector(".share-btn").onclick = () => {
+      if (navigator.share) {
+        navigator.share({
+          title: `${day} ${month}`,
+          text: post.post_text
+        });
+      } else {
+        alert("Sharing not supported");
+      }
+    };
+
+    dayPage.appendChild(div);
+  });
+}
+
+  </script>
+</body>
+</html>
